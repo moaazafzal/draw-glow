@@ -1,7 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#150f2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Glow Trace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
 <style>
+[hidden]{display:none!important}
+img{max-width:100%}
 :root{
   --ground:#150f2e; --ground-2:#221a4a;
   --mint:#5df2c4; --coral:#ff7a8a; --lemon:#ffe66d; --sky:#6fc8ff; --lilac:#c89bff;
@@ -112,7 +123,8 @@ button.pill:active{transform:translateY(1px)}
 @media (prefers-reduced-motion:reduce){.card,.stars span.on,.ad-box{animation:none}}
 @media (max-width:420px){.btn{font-size:18px;padding:13px 24px}.card{padding:24px 18px 20px}}
 </style>
-
+</head>
+<body>
 <canvas id="stage" aria-label="Glow Trace game"></canvas>
 
 <div id="hud" hidden>
@@ -596,3 +608,5 @@ function boot(){
 if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(boot); } else boot();
 })();
 </script>
+</body>
+</html>
