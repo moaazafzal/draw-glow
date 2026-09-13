@@ -1,0 +1,598 @@
+<title>Glow Trace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+:root{
+  --ground:#150f2e; --ground-2:#221a4a;
+  --mint:#5df2c4; --coral:#ff7a8a; --lemon:#ffe66d; --sky:#6fc8ff; --lilac:#c89bff;
+  --ink:#fff7fb; --ink-dim:rgba(255,247,251,.62); --ink-on:#1a1238;
+  --panel:rgba(34,26,74,.88); --panel-edge:rgba(255,255,255,.12);
+  --display:'Fredoka','Nunito',system-ui,sans-serif; --body:'Nunito',system-ui,sans-serif;
+}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+#stage{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block;outline:none}
+
+/* HUD */
+#hud{position:fixed;inset:0;padding-block:calc(14px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-bottom));padding-inline:16px;
+  pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;z-index:5}
+#hud[hidden]{display:none!important}
+.hud-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hud-row.bottom{align-items:flex-end}
+.hud-right{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pill{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--panel-edge);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  font-family:var(--body);font-weight:800;font-size:15px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+button.pill{cursor:pointer}
+button.pill:active{transform:translateY(1px)}
+.pill .lv{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.2px}
+.pill .sub{color:var(--ink-dim);font-weight:600}
+.coin{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6b0,var(--lemon) 55%,#e0a800);box-shadow:0 0 8px rgba(255,230,109,.6)}
+.hearts{letter-spacing:2px;color:var(--coral);font-size:17px}
+.hearts .off{color:rgba(255,255,255,.18)}
+.hint{pointer-events:none;font-family:var(--display);font-weight:500;font-size:clamp(17px,2.4vw,22px);color:var(--ink);
+  text-shadow:0 2px 18px rgba(0,0,0,.45);max-width:62ch;text-wrap:balance;transition:opacity .25s}
+.hint.warn{color:var(--coral)}
+.hint.good{color:var(--mint)}
+
+/* Buttons */
+.btn{font-family:var(--display);font-size:20px;font-weight:600;padding:15px 30px;border-radius:999px;border:0;color:var(--ink-on);
+  background:linear-gradient(135deg,var(--mint),var(--sky));box-shadow:0 6px 0 rgba(0,0,0,.28),0 16px 34px rgba(93,242,196,.22);
+  cursor:pointer;transition:transform .12s,box-shadow .12s;letter-spacing:.2px;min-width:160px}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 rgba(0,0,0,.28),0 6px 16px rgba(93,242,196,.15)}
+.btn:focus-visible,button.pill:focus-visible,.shop-item button:focus-visible{outline:3px solid var(--lemon);outline-offset:3px}
+.btn.coral{background:linear-gradient(135deg,var(--coral),#ffb27a);box-shadow:0 6px 0 rgba(0,0,0,.28),0 16px 34px rgba(255,122,138,.22)}
+.btn.lemon{background:linear-gradient(135deg,var(--lemon),#ffc46d);box-shadow:0 6px 0 rgba(0,0,0,.28),0 16px 34px rgba(255,230,109,.22)}
+.btn.lilac{background:linear-gradient(135deg,var(--lilac),var(--sky));box-shadow:0 6px 0 rgba(0,0,0,.28),0 16px 34px rgba(200,155,255,.22)}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);box-shadow:none;border:1px solid var(--panel-edge)}
+.btn.ghost:active{transform:translateY(1px)}
+.btn.sm{font-size:17px;padding:12px 22px;min-width:0}
+.btn[disabled]{opacity:.45;cursor:default;transform:none}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:rgba(10,6,28,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:20}
+.card{width:min(100%,380px);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--panel);border:1px solid var(--panel-edge);border-radius:28px;
+  padding:28px 22px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:pop .38s cubic-bezier(.2,1.5,.4,1) both;
+  display:flex;flex-direction:column;gap:14px;align-items:center}
+@keyframes pop{from{transform:scale(.86) translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.card h1,.card h2{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.05}
+.card h1{font-size:clamp(46px,12vw,64px);font-weight:700;background:linear-gradient(120deg,var(--mint),var(--sky) 40%,var(--lilac) 70%,var(--coral));
+  -webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.5px}
+.card h2{font-size:32px;font-weight:600}
+.card p{margin:0;color:var(--ink-dim);font-weight:600;line-height:1.45;max-width:34ch}
+.card .stack{display:flex;flex-direction:column;gap:10px;width:100%;align-items:center}
+.card .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%}
+.eyebrow{font-family:var(--body);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.stars{display:flex;gap:6px;font-size:40px;line-height:1;justify-content:center}
+.stars span{color:rgba(255,255,255,.14);transition:color .3s,transform .3s}
+.stars span.on{color:var(--lemon);text-shadow:0 0 18px rgba(255,230,109,.7);animation:star .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes star{from{transform:scale(.3) rotate(-25deg)}to{transform:none}}
+.reward{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;background:rgba(255,230,109,.12);border:1px solid rgba(255,230,109,.3);font-weight:800;font-variant-numeric:tabular-nums}
+.tiny{font-size:12px;color:var(--ink-dim);font-weight:600}
+
+/* Ad placeholder */
+.ad-box{width:min(100%,260px);aspect-ratio:1;max-width:100%;border-radius:22px;position:relative;overflow:hidden;display:grid;place-items:center;
+  background:conic-gradient(from 0deg,var(--mint),var(--sky),var(--lilac),var(--coral),var(--lemon),var(--mint));animation:hue 8s linear infinite}
+.ad-box::after{content:"";position:absolute;inset:14px;border-radius:14px;background:rgba(20,14,44,.82)}
+.ad-box b{position:relative;z-index:1;font-family:var(--display);font-size:54px;font-weight:700;letter-spacing:2px}
+.ad-box small{position:relative;z-index:1;font-size:13px;color:var(--ink-dim);font-weight:700;margin-top:-6px}
+.ad-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+.ad-bar{display:flex;justify-content:space-between;align-items:center;width:100%}
+.count{font-variant-numeric:tabular-nums;font-weight:800;color:var(--ink-dim)}
+
+/* Shop */
+.shop-list{display:flex;flex-direction:column;gap:8px;width:100%}
+.shop-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-radius:16px;
+  background:rgba(255,255,255,.05);border:1px solid var(--panel-edge);text-align:left}
+.shop-item .name{font-family:var(--display);font-weight:600;font-size:17px}
+.shop-item .desc{font-size:13px;color:var(--ink-dim);font-weight:600}
+.shop-item button{font-family:var(--display);font-weight:600;font-size:15px;padding:9px 14px;border-radius:999px;border:0;cursor:pointer;
+  color:var(--ink-on);background:linear-gradient(135deg,var(--lemon),#ffc46d);white-space:nowrap;min-width:88px;font-variant-numeric:tabular-nums}
+.shop-item button.cash{background:linear-gradient(135deg,var(--mint),var(--sky))}
+.shop-item button[disabled]{opacity:.4;cursor:default}
+
+/* Daily */
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;width:100%}
+.day{padding:10px 0 8px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--panel-edge);font-size:12px;font-weight:800;color:var(--ink-dim);
+  display:flex;flex-direction:column;gap:4px;align-items:center;font-variant-numeric:tabular-nums}
+.day b{font-size:14px;color:var(--ink)}
+.day.done{opacity:.45}
+.day.today{background:rgba(255,230,109,.14);border-color:var(--lemon);color:var(--lemon)}
+.day.today b{color:var(--lemon)}
+
+/* Toast */
+#toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);opacity:0;
+  padding:10px 18px;border-radius:999px;background:var(--panel);border:1px solid var(--panel-edge);font-weight:800;font-size:14px;
+  pointer-events:none;transition:.3s;z-index:40;max-width:calc(100% - 32px);text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){.card,.stars span.on,.ad-box{animation:none}}
+@media (max-width:420px){.btn{font-size:18px;padding:13px 24px}.card{padding:24px 18px 20px}}
+</style>
+
+<canvas id="stage" aria-label="Glow Trace game"></canvas>
+
+<div id="hud" hidden>
+  <div class="hud-row">
+    <div class="pill"><span class="lv" id="levelName">Level 1</span><span class="sub" id="levelTask">Draw the line</span></div>
+    <div class="hud-right">
+      <div class="pill"><span class="coin"></span><span id="coinCount">0</span></div>
+      <div class="pill hearts" id="hearts" aria-label="Lives"></div>
+      <button class="pill" id="muteBtn" aria-label="Toggle sound">Sound on</button>
+    </div>
+  </div>
+  <div class="hud-row bottom">
+    <div class="hint" id="hint">Touch the glowing dot and hold</div>
+    <button class="pill" id="hintBtn">Hint</button>
+  </div>
+</div>
+
+<div class="overlay" id="menu">
+  <div class="card">
+    <div class="eyebrow">One finger. Hold. Trace.</div>
+    <h1>Glow Trace</h1>
+    <p>Touch the glowing dot and slide along the light without lifting. Three short levels. Breathe out.</p>
+    <div class="stack">
+      <button class="btn" id="playBtn">Play</button>
+      <div class="row">
+        <button class="btn ghost sm" id="shopBtn">Shop</button>
+        <button class="btn ghost sm" id="dailyBtn">Daily gift</button>
+      </div>
+    </div>
+    <div class="reward"><span class="coin"></span><span id="menuCoins">0</span> coins</div>
+    <div class="tiny">Demo build. Ads and purchases are placeholders.</div>
+  </div>
+</div>
+
+<div class="overlay" id="done" hidden>
+  <div class="card">
+    <div class="eyebrow" id="doneEyebrow">Level 1 complete</div>
+    <h2 id="doneTitle">Lovely.</h2>
+    <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
+    <div class="reward"><span class="coin"></span>+<span id="doneCoins">30</span> coins</div>
+    <div class="stack">
+      <button class="btn" id="nextBtn">Next level</button>
+      <button class="btn ghost sm" id="replayBtn">Play again</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="lives" hidden>
+  <div class="card">
+    <div class="eyebrow">Out of lives</div>
+    <h2>Take a breath.</h2>
+    <p>Get a life back and pick up right where you were.</p>
+    <div class="stack">
+      <button class="btn coral" id="adLifeBtn">Watch ad · +1 life</button>
+      <button class="btn lemon sm" id="coinLifeBtn">50 coins · +3 lives</button>
+      <button class="btn ghost sm" id="restartBtn">Restart from level 1</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="hintPanel" hidden>
+  <div class="card">
+    <div class="eyebrow">Hint</div>
+    <h2>Show me the path</h2>
+    <p>A glowing guide will trace the whole level once.</p>
+    <div class="stack">
+      <button class="btn lilac" id="adHintBtn">Watch ad · free hint</button>
+      <button class="btn lemon sm" id="coinHintBtn">30 coins</button>
+      <button class="btn ghost sm" id="closeHintBtn">Back</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ad" hidden>
+  <div class="card">
+    <div class="ad-bar"><span class="eyebrow" id="adKind">Advertisement</span><span class="count" id="adCount">Close in 3</span></div>
+    <div class="ad-box"><div class="ad-inner"><b>AD</b><small>placeholder panel</small></div></div>
+    <p class="tiny">In production this panel is replaced by the ad SDK (AdMob, Unity Ads, etc.).</p>
+    <button class="btn ghost sm" id="adClose" disabled>Close ✕</button>
+  </div>
+</div>
+
+<div class="overlay" id="shop" hidden>
+  <div class="card">
+    <div class="eyebrow">Shop</div>
+    <h2>Little boosts</h2>
+    <div class="reward"><span class="coin"></span><span id="shopCoins">0</span> coins</div>
+    <div class="shop-list" id="shopList"></div>
+    <button class="btn ghost sm" id="closeShop">Done</button>
+    <div class="tiny">Demo purchases. No real billing.</div>
+  </div>
+</div>
+
+<div class="overlay" id="daily" hidden>
+  <div class="card">
+    <div class="eyebrow">Daily gift</div>
+    <h2 id="dailyTitle">Day 1</h2>
+    <p>Come back every day for a bigger gift. Day 7 is the big one.</p>
+    <div class="days" id="days"></div>
+    <button class="btn lemon" id="claimBtn">Claim +50</button>
+  </div>
+</div>
+
+<div class="overlay" id="finish" hidden>
+  <div class="card">
+    <div class="eyebrow">Demo complete</div>
+    <h2>All three, done.</h2>
+    <p>Real game continues with hundreds of generated levels. Coins carry over.</p>
+    <div class="reward"><span class="coin"></span><span id="finishCoins">0</span> coins</div>
+    <div class="stack">
+      <button class="btn" id="againBtn">Play again</button>
+      <button class="btn ghost sm" id="finishShop">Shop</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const buzz = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
+
+/* ---------- save data ---------- */
+const save = { coins:0, lives:3, removeAds:false, daily:null, streak:0, best:0, muted:false, wide:false };
+try{ Object.assign(save, JSON.parse(localStorage.getItem('glowtrace')||'{}')); }catch(e){}
+const store = ()=>{ try{ localStorage.setItem('glowtrace', JSON.stringify(save)); }catch(e){} };
+
+/* ---------- palette ---------- */
+const C = { mint:0x5df2c4, coral:0xff7a8a, lemon:0xffe66d, sky:0x6fc8ff, lilac:0xc89bff, white:0xffffff };
+
+/* ---------- levels (normalized -1..1, scaled to fit screen) ---------- */
+const LEVELS = [
+  { name:'Level 1', task:'Draw the line', color:C.mint, tol:0.55,
+    hint:'Hold the dot and slide along the line.',
+    build:s=> new THREE.LineCurve3(new THREE.Vector3(-1*s,0.18*s,0), new THREE.Vector3(1*s,-0.18*s,0)) },
+  { name:'Level 2', task:'Trace the circle', color:C.coral, tol:0.46, closed:true,
+    hint:'Go all the way around. Do not lift.',
+    build:s=>{ const pts=[]; for(let i=0;i<48;i++){ const a=Math.PI/2 - i/48*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*0.85*s, Math.sin(a)*0.85*s, 0)); }
+      const c=new THREE.CatmullRomCurve3(pts,true,'centripetal'); return c; } },
+  { name:'Level 3', task:'Stop at the mark', color:C.lilac, tol:0.40, stop:[0.76,0.85],
+    hint:'Follow the wave, then let go inside the ring.',
+    build:s=>{ const P=[[-1,-0.55],[-0.55,0.35],[-0.1,-0.35],[0.35,0.5],[0.72,-0.1],[1,0.25]];
+      return new THREE.CatmullRomCurve3(P.map(p=>new THREE.Vector3(p[0]*s,p[1]*s,0)),false,'centripetal',0.6); } },
+];
+const N = 240;          // path samples
+const LOOK = 16;        // lookahead samples per move event
+
+/* ---------- renderer / scene ---------- */
+const canvas = $('stage');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+const scene = new THREE.Scene();
+const VIEW_H = 10; let viewW = 10;
+const camera = new THREE.OrthographicCamera(-5,5,5,-5,0.1,100);
+camera.position.set(0,0,20); camera.lookAt(0,0,0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x3a2a7a, 1.0));
+const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(3,6,10); scene.add(key);
+const rim = new THREE.DirectionalLight(0xff9ab0, 0.5); rim.position.set(-6,-4,6); scene.add(rim);
+
+/* background: drifting soft blobs */
+const bgMat = new THREE.ShaderMaterial({
+  depthWrite:false, depthTest:false,
+  uniforms:{ t:{value:0}, aspect:{value:1} },
+  vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:`
+    uniform float t; uniform float aspect; varying vec2 vUv;
+    vec3 blob(vec2 uv, vec2 c, vec3 col, float r){ float d=length((uv-c)*vec2(aspect,1.0)); return col*smoothstep(r,0.0,d); }
+    void main(){
+      vec2 uv=vUv;
+      vec3 c=mix(vec3(0.075,0.055,0.17), vec3(0.15,0.10,0.31), uv.y);
+      c+=blob(uv, vec2(0.22+0.10*sin(t*0.21), 0.72+0.08*cos(t*0.17)), vec3(0.36,0.95,0.77)*0.30, 0.55);
+      c+=blob(uv, vec2(0.80+0.08*cos(t*0.13), 0.24+0.10*sin(t*0.19)), vec3(1.00,0.48,0.54)*0.28, 0.60);
+      c+=blob(uv, vec2(0.50+0.12*sin(t*0.11), 0.48+0.10*cos(t*0.23)), vec3(0.78,0.61,1.00)*0.22, 0.50);
+      c+=blob(uv, vec2(0.15+0.06*cos(t*0.16), 0.18+0.07*sin(t*0.14)), vec3(0.43,0.78,1.00)*0.18, 0.45);
+      float vig=smoothstep(1.15,0.30,length(uv-0.5)*1.45);
+      c*=mix(0.72,1.0,vig);
+      gl_FragColor=vec4(c,1.0);
+    }`
+});
+const bg = new THREE.Mesh(new THREE.PlaneGeometry(1,1), bgMat); bg.position.z=-10; bg.renderOrder=-1; scene.add(bg);
+
+/* soft sprite texture */
+function glowTexture(inner, outer){
+  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const r=g.createRadialGradient(64,64,0,64,64,64); r.addColorStop(0,inner); r.addColorStop(0.35,inner); r.addColorStop(1,outer);
+  g.fillStyle=r; g.fillRect(0,0,128,128); const t=new THREE.CanvasTexture(c); return t;
+}
+const softTex = glowTexture('rgba(255,255,255,1)','rgba(255,255,255,0)');
+const dotTex  = glowTexture('rgba(255,255,255,1)','rgba(255,255,255,0)');
+
+/* floating dust */
+const DUST = 110; const dustPos = new Float32Array(DUST*3); const dustVel = [];
+for(let i=0;i<DUST;i++){ dustPos[i*3]=(Math.random()-0.5)*20; dustPos[i*3+1]=(Math.random()-0.5)*12; dustPos[i*3+2]=-4+Math.random()*2; dustVel.push(0.05+Math.random()*0.12); }
+const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos,3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size:0.22, map:dotTex, transparent:true, opacity:0.35, depthWrite:false, blending:THREE.AdditiveBlending, color:0xdcd0ff, sizeAttenuation:true }));
+scene.add(dust);
+
+/* ---------- track objects ---------- */
+const track = new THREE.Group(); scene.add(track);
+let baseTube=null, fillTube=null, curve=null, pts=[], lvl=null, levelIndex=0;
+const RADIAL = 14;
+const baseMat = new THREE.MeshStandardMaterial({ color:0xffffff, transparent:true, opacity:0.22, roughness:0.7, metalness:0 });
+const fillMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:0.55, roughness:0.3, metalness:0 });
+
+const startRing = new THREE.Mesh(new THREE.TorusGeometry(0.46,0.07,14,48), new THREE.MeshStandardMaterial({ color:C.lemon, emissive:C.lemon, emissiveIntensity:0.6, roughness:0.4 }));
+const startGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map:softTex, color:C.lemon, transparent:true, opacity:0.45, blending:THREE.AdditiveBlending, depthWrite:false }));
+startGlow.scale.set(2.2,2.2,1);
+const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.34,16), new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:0.3, roughness:0.4 }));
+const endRing = new THREE.Mesh(new THREE.TorusGeometry(0.34,0.06,14,48), new THREE.MeshStandardMaterial({ color:0xffffff, transparent:true, opacity:0.5, roughness:0.5 }));
+const stopRing = new THREE.Mesh(new THREE.TorusGeometry(0.62,0.08,14,56), new THREE.MeshStandardMaterial({ color:C.lemon, emissive:C.lemon, emissiveIntensity:0.5, roughness:0.4 }));
+const stopDisc = new THREE.Mesh(new THREE.CircleGeometry(0.62,48), new THREE.MeshBasicMaterial({ color:C.lemon, transparent:true, opacity:0.12, depthWrite:false }));
+const stopLabel = new THREE.Sprite(new THREE.SpriteMaterial({ transparent:true, depthWrite:false })); stopLabel.scale.set(2.4,0.9,1);
+function drawStopLabel(){ const c=document.createElement('canvas'); c.width=256; c.height=96; const g=c.getContext('2d');
+  g.font='600 44px Fredoka, Nunito, sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#ffe66d'; g.fillText('let go here',128,48);
+  if(stopLabel.material.map) stopLabel.material.map.dispose(); stopLabel.material.map=new THREE.CanvasTexture(c); stopLabel.material.needsUpdate=true; }
+track.add(startGlow, startRing, arrow, endRing, stopRing, stopDisc, stopLabel);
+
+/* bead + finger */
+const bead = new THREE.Mesh(new THREE.SphereGeometry(0.26,32,32), new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:0.5, roughness:0.15, metalness:0 }));
+const beadGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map:softTex, color:0xffffff, transparent:true, opacity:0.75, blending:THREE.AdditiveBlending, depthWrite:false }));
+beadGlow.scale.set(1.8,1.8,1);
+const ghost = new THREE.Mesh(new THREE.SphereGeometry(0.2,24,24), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55 }));
+ghost.visible=false;
+const finger = new THREE.Mesh(new THREE.TorusGeometry(0.5,0.035,10,48), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.35 }));
+finger.visible=false;
+scene.add(bead, beadGlow, ghost, finger);
+
+/* sparkles */
+const SPARK = 90; const sparks=[];
+const sparkGeo = new THREE.SphereGeometry(0.07,8,8);
+for(let i=0;i<SPARK;i++){ const m=new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0 })); m.visible=false; scene.add(m); sparks.push({m, life:0, vx:0, vy:0}); }
+let sparkCursor=0;
+function spark(x,y,color,speed,count){
+  for(let k=0;k<count;k++){ const s=sparks[sparkCursor=(sparkCursor+1)%SPARK]; const a=Math.random()*Math.PI*2; const v=speed*(0.4+Math.random());
+    s.m.position.set(x,y,1); s.vx=Math.cos(a)*v; s.vy=Math.sin(a)*v; s.life=1; s.m.visible=true; s.m.material.color.setHex(color); s.m.material.opacity=1;
+    const sc=0.6+Math.random()*0.9; s.m.scale.set(sc,sc,sc); }
+}
+
+function fitScale(){ return Math.min(viewW*0.42, VIEW_H*0.32); }
+
+function buildLevel(i){
+  levelIndex=i; lvl=LEVELS[i];
+  if(baseTube){ track.remove(baseTube, fillTube); baseTube.geometry.dispose(); fillTube.geometry.dispose(); }
+  const s=fitScale(); curve=lvl.build(s);
+  pts=curve.getSpacedPoints(N);
+  baseTube=new THREE.Mesh(new THREE.TubeGeometry(curve,N,0.17,RADIAL,!!lvl.closed), baseMat);
+  fillTube=new THREE.Mesh(new THREE.TubeGeometry(curve,N,0.19,RADIAL,!!lvl.closed), fillMat);
+  fillTube.geometry.setDrawRange(0,0);
+  track.add(baseTube, fillTube);
+  fillMat.color.setHex(lvl.color); fillMat.emissive.setHex(lvl.color);
+  bead.material.emissive.setHex(lvl.color); beadGlow.material.color.setHex(lvl.color);
+  startRing.position.copy(pts[0]); startGlow.position.copy(pts[0]); startGlow.position.z=-0.5;
+  const tan=curve.getTangentAt(0); arrow.position.copy(pts[0]).addScaledVector(tan,0.85); arrow.rotation.z=Math.atan2(tan.y,tan.x)-Math.PI/2;
+  endRing.visible=!lvl.closed && !lvl.stop; endRing.position.copy(pts[N]);
+  const hasStop=!!lvl.stop; stopRing.visible=stopDisc.visible=stopLabel.visible=hasStop;
+  if(hasStop){ const mid=curve.getPointAt((lvl.stop[0]+lvl.stop[1])/2); stopRing.position.copy(mid); stopDisc.position.copy(mid); stopDisc.position.z=-0.3; stopLabel.position.set(mid.x, mid.y+1.05, 0.5); }
+  resetTrace();
+  $('levelName').textContent=lvl.name; $('levelTask').textContent=lvl.task; setHint(lvl.hint);
+}
+
+function resize(){
+  const w=window.innerWidth, h=window.innerHeight; renderer.setSize(w,h,false);
+  viewW=VIEW_H*(w/h); camera.left=-viewW/2; camera.right=viewW/2; camera.top=VIEW_H/2; camera.bottom=-VIEW_H/2; camera.updateProjectionMatrix();
+  bg.scale.set(viewW,VIEW_H,1); bgMat.uniforms.aspect.value=w/h;
+  if(lvl) buildLevel(levelIndex);
+}
+window.addEventListener('resize', resize);
+
+/* ---------- audio (ASMR layer) ---------- */
+const audio = {
+  ctx:null, master:null, send:null, tone:null, toneGain:null, noise:null, ready:false,
+  ensure(){
+    if(this.ready) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ctx=this.ctx=new AC(); this.master=ctx.createGain(); this.master.gain.value=save.muted?0:0.6; this.master.connect(ctx.destination);
+    // lush delay send
+    const delay=ctx.createDelay(1.0); delay.delayTime.value=0.31; const fb=ctx.createGain(); fb.gain.value=0.38;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800;
+    delay.connect(lp); lp.connect(fb); fb.connect(delay); const wet=ctx.createGain(); wet.gain.value=0.45; lp.connect(wet); wet.connect(this.master);
+    this.send=delay;
+    // glide tone
+    const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=220;
+    const osc2=ctx.createOscillator(); osc2.type='triangle'; osc2.frequency.value=220; osc2.detune.value=7;
+    const g2=ctx.createGain(); g2.gain.value=0.25;
+    const lfo=ctx.createOscillator(); lfo.frequency.value=4.5; const lfoG=ctx.createGain(); lfoG.gain.value=2.5; lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    const tlp=ctx.createBiquadFilter(); tlp.type='lowpass'; tlp.frequency.value=1400;
+    const tg=this.toneGain=ctx.createGain(); tg.gain.value=0;
+    osc.connect(tlp); osc2.connect(g2); g2.connect(tlp); tlp.connect(tg); tg.connect(this.master); tg.connect(this.send);
+    osc.start(); osc2.start(); lfo.start(); this.tone=[osc,osc2];
+    // noise buffer for ticks
+    const len=ctx.sampleRate*0.15; const buf=ctx.createBuffer(1,len,ctx.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1);
+    this.noise=buf; this.ready=true;
+  },
+  resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
+  setMuted(m){ if(this.master) this.master.gain.setTargetAtTime(m?0:0.6, this.ctx.currentTime, 0.05); },
+  startTone(){ if(!this.ready) return; this.toneGain.gain.cancelScheduledValues(this.ctx.currentTime); this.toneGain.gain.setTargetAtTime(0.11, this.ctx.currentTime, 0.12); },
+  glide(p){ if(!this.ready) return; const f=196*Math.pow(2, p*1.0); this.tone[0].frequency.setTargetAtTime(f, this.ctx.currentTime, 0.06); this.tone[1].frequency.setTargetAtTime(f, this.ctx.currentTime, 0.06); },
+  stopTone(){ if(!this.ready) return; this.toneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.18); },
+  tick(){ if(!this.ready) return; const ctx=this.ctx; const src=ctx.createBufferSource(); src.buffer=this.noise; const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2600+Math.random()*1800; bp.Q.value=1.2;
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.06,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0008, ctx.currentTime+0.05); src.connect(bp); bp.connect(g); g.connect(this.master); src.start(); src.stop(ctx.currentTime+0.06); },
+  note(freq, t, dur, vol, type){ const ctx=this.ctx; const o=ctx.createOscillator(); o.type=type||'triangle'; o.frequency.value=freq; const g=ctx.createGain();
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(this.master); g.connect(this.send); o.start(t); o.stop(t+dur+0.05); },
+  chime(){ if(!this.ready) return; const t=this.ctx.currentTime; [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>this.note(f, t+i*0.085, 0.9, 0.16)); this.note(261.6, t, 1.4, 0.10, 'sine'); },
+  fail(){ if(!this.ready) return; const t=this.ctx.currentTime; this.note(329.6, t, 0.25, 0.12, 'sine'); this.note(246.9, t+0.16, 0.45, 0.12, 'sine'); },
+  pop(){ if(!this.ready) return; const t=this.ctx.currentTime; this.note(880, t, 0.09, 0.08, 'sine'); },
+  coin(){ if(!this.ready) return; const t=this.ctx.currentTime; this.note(1046.5, t, 0.12, 0.1); this.note(1567.98, t+0.07, 0.25, 0.1); },
+};
+
+/* ---------- game state ---------- */
+let state='menu';               // menu | play | won | failed | paused
+const trace={ active:false, idx:0, smooth:0, fails:0, lastTick:0 };
+let shake=0, flash=0, winPulse=0, ghostT=-1, fingerPos=new THREE.Vector3();
+const hintEl=$('hint');
+function setHint(text, cls){ hintEl.textContent=text; hintEl.className='hint'+(cls?' '+cls:''); }
+
+function resetTrace(){ trace.active=false; trace.idx=0; trace.smooth=0; trace.lastTick=0; if(fillTube) fillTube.geometry.setDrawRange(0,0); finger.visible=false; }
+function tolerance(){ return lvl.tol*(save.wide?1.35:1); }
+
+function toWorld(e){ const r=canvas.getBoundingClientRect(); return new THREE.Vector3(((e.clientX-r.left)/r.width-0.5)*viewW, (0.5-(e.clientY-r.top)/r.height)*VIEW_H, 0); }
+function d2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+
+function onDown(e){
+  audio.ensure(); audio.resume();
+  if(state!=='play' || trace.active) return;
+  const p=toWorld(e); fingerPos.copy(p);
+  if(d2(p,pts[0])>0.8){ setHint('Start on the glowing dot.'); return; }
+  try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  trace.active=true; trace.idx=0; trace.smooth=0; finger.visible=true; finger.position.set(p.x,p.y,1.5);
+  audio.startTone(); audio.glide(0); buzz(10); setHint('Keep holding. Slow and steady.');
+}
+function onMove(e){
+  if(!trace.active) return; const p=toWorld(e); fingerPos.copy(p); finger.position.set(p.x,p.y,1.5);
+  const tol=tolerance(); let best=trace.idx;
+  for(let k=trace.idx+1;k<=Math.min(N,trace.idx+LOOK);k++){ if(d2(p,pts[k])<=tol) best=k; }
+  if(best>trace.idx){ trace.idx=best; const f=trace.idx/N; audio.glide(f);
+    if(f-trace.lastTick>=0.04){ trace.lastTick=f; audio.tick(); buzz(6); }
+    spark(pts[trace.idx].x, pts[trace.idx].y, lvl.color, 0.8, 1);
+  }
+  if(d2(p,pts[trace.idx])>tol*1.55){ fail('Off the line. Try again.'); return; }
+  if(lvl.stop && trace.idx/N>lvl.stop[1]){ fail('Too far. Let go inside the ring.'); return; }
+  if(!lvl.stop && trace.idx>=N-1){ win(); }
+}
+function onUp(){
+  if(!trace.active) return;
+  if(lvl.stop){ const f=trace.idx/N; if(f>=lvl.stop[0]&&f<=lvl.stop[1]) win(); else fail(f<lvl.stop[0]?'Lifted too soon. Reach the ring first.':'Too far.'); }
+  else fail('Lifted too soon. Keep holding.');
+}
+canvas.addEventListener('pointerdown', onDown);
+canvas.addEventListener('pointermove', onMove);
+canvas.addEventListener('pointerup', onUp);
+canvas.addEventListener('pointercancel', onUp);
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+function fail(msg){
+  trace.active=false; finger.visible=false; state='failed'; audio.stopTone(); audio.fail(); buzz([20,40,20]);
+  shake=1; flash=1; trace.fails++; save.lives=Math.max(0,save.lives-1); store(); renderHud(); setHint(msg,'warn');
+  setTimeout(()=>{ resetTrace(); if(save.lives<=0){ state='paused'; open('lives'); } else { state='play'; setHint(lvl.hint); } }, 750);
+}
+function win(){
+  trace.active=false; finger.visible=false; state='won'; trace.idx=N; audio.stopTone(); audio.chime(); buzz([15,30,15,30,60]);
+  winPulse=1; const e=pts[lvl.stop?Math.round(((lvl.stop[0]+lvl.stop[1])/2)*N):N]; spark(e.x,e.y,lvl.color,3.2,26); spark(e.x,e.y,C.lemon,2.2,14); spark(e.x,e.y,0xffffff,4,10);
+  const stars=trace.fails===0?3:trace.fails===1?2:1; const coins=stars*10+(stars===3?5:0);
+  save.coins+=coins; save.best=Math.max(save.best,levelIndex+1); store(); renderHud(); setHint('Beautiful.','good');
+  setTimeout(()=>{ $('doneEyebrow').textContent=lvl.name+' complete'; $('doneTitle').textContent=['Nice.','Lovely.','So smooth.'][stars-1]; $('doneCoins').textContent=coins;
+    [...$('stars').children].forEach((s,i)=>{ s.classList.remove('on'); if(i<stars) setTimeout(()=>s.classList.add('on'),150+i*160); });
+    $('nextBtn').textContent=levelIndex<LEVELS.length-1?'Next level':'Finish'; state='paused'; open('done'); audio.coin(); }, 950);
+}
+
+/* ---------- overlays ---------- */
+const overlays=['menu','done','lives','hintPanel','ad','shop','daily','finish'];
+function open(id){ overlays.forEach(o=>$(o).hidden=(o!==id)); $('hud').hidden=(id==='menu'||id==='finish'); }
+function closeAll(){ overlays.forEach(o=>$(o).hidden=true); $('hud').hidden=false; }
+let toastT=0; function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+function renderHud(){
+  $('coinCount').textContent=save.coins; $('menuCoins').textContent=save.coins; $('shopCoins').textContent=save.coins; $('finishCoins').textContent=save.coins;
+  $('hearts').innerHTML=[0,1,2].map(i=>'<span class="'+(i<save.lives?'':'off')+'">♥</span>').join('');
+  $('muteBtn').textContent=save.muted?'Sound off':'Sound on';
+  [...document.querySelectorAll('[data-cost]')].forEach(b=>b.disabled=save.coins<+b.dataset.cost);
+}
+
+/* ads: interstitial and rewarded placeholders */
+let adTimer=0;
+function showAd(kind, onDone){
+  if(kind==='interstitial' && save.removeAds){ onDone(); return; }
+  state='paused'; open('ad'); $('adKind').textContent=kind==='rewarded'?'Rewarded ad':'Advertisement';
+  const btn=$('adClose'); btn.disabled=true; let n=kind==='rewarded'?5:3; $('adCount').textContent='Close in '+n;
+  clearInterval(adTimer); adTimer=setInterval(()=>{ n--; if(n<=0){ clearInterval(adTimer); $('adCount').textContent=kind==='rewarded'?'Reward ready':'You can close'; btn.disabled=false; } else $('adCount').textContent='Close in '+n; },1000);
+  btn.onclick=()=>{ audio.pop(); clearInterval(adTimer); onDone(true); };
+}
+
+function startLevel(i){ closeAll(); buildLevel(i); state='play'; renderHud(); }
+function playHint(){ ghostT=0; setHint('Watch the guide.'); }
+
+/* buttons */
+$('playBtn').onclick=()=>{ audio.ensure(); audio.resume(); audio.pop(); startLevel(0); };
+$('nextBtn').onclick=()=>{ audio.pop(); const next=levelIndex+1;
+  if(next>=LEVELS.length){ showAd('interstitial', ()=>{ state='paused'; open('finish'); renderHud(); }); }
+  else showAd('interstitial', ()=>startLevel(next)); };
+$('replayBtn').onclick=()=>{ audio.pop(); showAd('interstitial', ()=>startLevel(levelIndex)); };
+$('againBtn').onclick=()=>{ audio.pop(); startLevel(0); };
+$('finishShop').onclick=()=>{ audio.pop(); open('shop'); shopFrom='finish'; };
+$('restartBtn').onclick=()=>{ audio.pop(); save.lives=3; store(); startLevel(0); };
+$('adLifeBtn').onclick=()=>{ showAd('rewarded', ()=>{ save.lives=Math.min(3,save.lives+1); store(); toast('+1 life'); audio.coin(); startLevel(levelIndex); }); };
+$('coinLifeBtn').onclick=()=>{ if(save.coins<50){ toast('Not enough coins'); return; } save.coins-=50; save.lives=3; store(); audio.coin(); toast('+3 lives'); startLevel(levelIndex); };
+$('hintBtn').onclick=()=>{ if(state!=='play'||trace.active) return; audio.pop(); state='paused'; open('hintPanel'); };
+$('closeHintBtn').onclick=()=>{ audio.pop(); closeAll(); state='play'; };
+$('adHintBtn').onclick=()=>{ showAd('rewarded', ()=>{ closeAll(); state='play'; playHint(); }); };
+$('coinHintBtn').onclick=()=>{ if(save.coins<30){ toast('Not enough coins'); return; } save.coins-=30; store(); renderHud(); audio.coin(); closeAll(); state='play'; playHint(); };
+$('muteBtn').onclick=()=>{ audio.ensure(); save.muted=!save.muted; store(); audio.setMuted(save.muted); renderHud(); };
+
+/* shop */
+let shopFrom='menu';
+const SHOP=[
+  { name:'Handful of coins', desc:'+100 coins', price:'$0.99', cash:true, run:()=>{ save.coins+=100; } },
+  { name:'Bag of coins', desc:'+550 coins', price:'$3.99', cash:true, run:()=>{ save.coins+=550; } },
+  { name:'Three lives', desc:'Refill hearts', cost:50, run:()=>{ save.lives=3; } },
+  { name:'Wide line', desc:'Forgiving line for this session', cost:40, run:()=>{ save.wide=true; } },
+  { name:'Remove ads', desc:'No more interstitials, ever', price:'$2.99', cash:true, once:true, run:()=>{ save.removeAds=true; } },
+];
+function renderShop(){
+  $('shopList').innerHTML=SHOP.map((it,i)=>{ const owned=it.once&&save.removeAds; const label=owned?'Owned':(it.cash?it.price:it.cost+' coins');
+    return '<div class="shop-item"><div><div class="name">'+it.name+'</div><div class="desc">'+it.desc+'</div></div><button data-i="'+i+'" '+(it.cash?'class="cash"':'data-cost="'+it.cost+'"')+(owned?' disabled':'')+'>'+label+'</button></div>'; }).join('');
+  [...$('shopList').querySelectorAll('button')].forEach(b=>b.onclick=()=>{ const it=SHOP[+b.dataset.i];
+    if(!it.cash){ if(save.coins<it.cost){ toast('Not enough coins'); return; } save.coins-=it.cost; }
+    it.run(); store(); audio.coin(); renderHud(); renderShop(); toast(it.cash?'Demo purchase, no billing. '+it.desc:it.desc); });
+  renderHud();
+}
+$('shopBtn').onclick=()=>{ audio.ensure(); audio.pop(); shopFrom='menu'; renderShop(); open('shop'); };
+$('closeShop').onclick=()=>{ audio.pop(); if(shopFrom==='finish') open('finish'); else if(shopFrom==='lives') open('lives'); else open('menu'); renderHud(); };
+
+/* daily reward */
+const REWARDS=[50,60,70,80,90,100,200];
+function today(){ return new Date().toISOString().slice(0,10); }
+function renderDaily(){ const day=save.streak%7; $('dailyTitle').textContent='Day '+(day+1);
+  $('days').innerHTML=REWARDS.map((r,i)=>'<div class="day '+(i<day?'done':i===day?'today':'')+'"><span>'+(i+1)+'</span><b>+'+r+'</b></div>').join('');
+  const claimed=save.daily===today(); $('claimBtn').disabled=claimed; $('claimBtn').textContent=claimed?'Come back tomorrow':'Claim +'+REWARDS[day]; }
+$('dailyBtn').onclick=()=>{ audio.ensure(); audio.pop(); renderDaily(); open('daily'); };
+$('claimBtn').onclick=()=>{ const day=save.streak%7; save.coins+=REWARDS[day]; save.streak++; save.daily=today(); store(); audio.coin(); buzz(20); toast('+'+REWARDS[day]+' coins'); renderHud(); open('menu'); };
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('pointerdown', e=>{ if(e.target===o && o.id==='daily'){ open('menu'); } }));
+
+/* ---------- render loop ---------- */
+const clock=new THREE.Clock(); const tmp=new THREE.Vector3(); const WHITE=new THREE.Color(0xffffff);
+function frame(){
+  const dt=Math.min(clock.getDelta(),0.05); const t=clock.elapsedTime;
+  bgMat.uniforms.t.value=t;
+  const pa=dust.geometry.attributes.position; for(let i=0;i<DUST;i++){ pa.array[i*3+1]+=dustVel[i]*dt; pa.array[i*3]+=Math.sin(t*0.4+i)*0.002; if(pa.array[i*3+1]>6.5){ pa.array[i*3+1]=-6.5; pa.array[i*3]=(Math.random()-0.5)*20; } } pa.needsUpdate=true;
+  if(lvl){
+    // bead follows progress smoothly
+    trace.smooth+=(trace.idx-trace.smooth)*Math.min(1,dt*18); const si=clamp(trace.smooth,0,N); const i0=Math.floor(si), i1=Math.min(N,i0+1), fr=si-i0;
+    tmp.copy(pts[i0]).lerp(pts[i1],fr); bead.position.set(tmp.x,tmp.y,0.9); beadGlow.position.set(tmp.x,tmp.y,0.6);
+    const segs=Math.floor(si); fillTube.geometry.setDrawRange(0, segs*RADIAL*6);
+    const idle=!trace.active&&state==='play'; const pulse=1+(idle?0.12*Math.sin(t*3.2):0.04*Math.sin(t*9));
+    bead.scale.setScalar(pulse*(1+winPulse*0.6)); beadGlow.scale.setScalar(1.8*pulse*(1+winPulse*1.2)); beadGlow.material.opacity=0.55+0.25*Math.sin(t*2.5)+winPulse*0.4;
+    startRing.scale.setScalar(1+0.08*Math.sin(t*3)); startRing.material.emissiveIntensity=0.5+0.3*Math.sin(t*3); startGlow.material.opacity=0.35+0.15*Math.sin(t*3);
+    startRing.visible=startGlow.visible=arrow.visible=!trace.active&&trace.idx===0&&state!=='won';
+    if(stopRing.visible){ stopRing.scale.setScalar(1+0.06*Math.sin(t*4)); stopRing.material.emissiveIntensity=0.4+0.3*Math.sin(t*4); }
+    fillMat.emissiveIntensity=0.55+flash*0.9+winPulse*0.7; fillMat.color.setHex(lvl.color).lerp(WHITE, flash*0.5);
+    track.position.x=Math.sin(t*90)*shake*0.18; track.position.y=Math.cos(t*70)*shake*0.12;
+    shake=Math.max(0,shake-dt*3.2); flash=Math.max(0,flash-dt*2.5); winPulse=Math.max(0,winPulse-dt*1.1);
+    finger.scale.setScalar(1+0.05*Math.sin(t*12));
+    if(ghostT>=0){ ghostT+=dt/2.6; if(ghostT>=1){ ghostT=-1; ghost.visible=false; setHint(lvl.hint); } else { ghost.visible=true; const gp=curve.getPointAt(lvl.stop?ghostT*(lvl.stop[0]+lvl.stop[1])/2:ghostT); ghost.position.set(gp.x,gp.y,1.2); if(Math.random()<0.6) spark(gp.x,gp.y,0xffffff,0.5,1); } }
+  }
+  for(const s of sparks){ if(!s.m.visible) continue; s.life-=dt*1.6; if(s.life<=0){ s.m.visible=false; continue; } s.m.position.x+=s.vx*dt; s.m.position.y+=s.vy*dt; s.vx*=0.96; s.vy=s.vy*0.96+0.4*dt; s.m.material.opacity=s.life; s.m.scale.multiplyScalar(0.985); }
+  renderer.render(scene,camera); requestAnimationFrame(frame);
+}
+
+/* ---------- boot ---------- */
+function boot(){
+  drawStopLabel(); resize(); buildLevel(0); renderHud(); open('menu'); state='menu';
+  if(save.daily!==today()){ renderDaily(); open('daily'); }
+  audio.setMuted(save.muted); frame();
+}
+if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(boot); } else boot();
+})();
+</script>
